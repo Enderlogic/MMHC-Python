@@ -1,0 +1,7 @@
+ID,Var1,Dependency,Var2
+1,HP,->,AS
+2,HP,->,HS
+3,HS,->,HT
+4,HT,->,HG
+5,AS,->,AT
+6,AT,->,AG
