@@ -1,191 +1,210 @@
 import numpy as np
 from scipy.stats.distributions import chi2
+import operator
 import itertools
-from collections import Counter
 
-def mmpc_forward(data, state):
+# forward phase of MMPC
+def mmpc_forward(tar, pc, can, data, prune, threshold):
+    # tar: target variable
+    # pc: parents and children set of the target variable
+    # can: candidate variable for the pc set of the target variable
+    # data: input data
+    # prune: prune the target variable in the candidate variable set for those variables which are independent with the target one
 
-    #forward phase of MMPC
-    pc_con = {}
-    for tar in data:
-        # check independence between two variables
-        pc_con[tar], pc_rest = independence_test_binary(tar, data, state)
+    # run until no candidate variable for current variable
 
-        if pc_rest:
-            # check conditional independence conditioning on one variable
-            p = independence_test_ternary(tar, pc_con[tar], pc_rest, data, state)
-            p_store = p.copy()
-            if p:
-                pc_con[tar].append(min(p, key = p.get))
-                p.pop(min(p, key=p.get))
-            pc_rest = []
-            while p:
-                pc_rest.append(min(p, key = p.get))
-                p.pop(min(p, key=p.get))
-            # check conditional independence conditioning on two or more variables
-            while pc_rest:
-                for r in range(len(pc_con[tar])):
-                    for subset in itertools.combinations(pc_con[tar], r):
-                        pc_con_temp = list(subset)
-                        pc_con_temp.append(pc_con[tar][-1])
-                        p_temp = independence_test_ternary(tar, pc_con_temp, pc_rest, data, state)
-                        pc_rest = []
-                        if not p_temp:
-                            break
-                        p_store_temp = {}
-                        for key in p_store:
-                            if key in p_temp.keys():
-                                p_store_temp[key] = p_store[key]
-                        p_store = Counter(p_store_temp) + Counter(p_temp)
-                        p_store_temp = p_store.copy()
-                        while p_store_temp:
-                            pc_rest.append(min(p_store_temp, key = p_store_temp.get))
-                            p_store_temp.pop(min(p_store_temp, key = p_store_temp.get))
-                    if not pc_rest:
-                        break
-                if p:
-                    pc_con[tar].append(min(p, key=p.get))
-                    p.pop(min(p, key=p.get))
-                pc_rest = []
-                while p:
-                    pc_rest.append(min(p, key=p.get))
-                    p.pop(min(p, key=p.get))
-    return pc_con
+    p_value = {}
+    for can_var in can[tar]:
+        p_value[can_var] = 0
 
-def mmpc_backward(pc, data, state):
+    while can[tar]:
+        # run conditional independence test between each candidate varialbe and target variable
+        p_value = independence_test(p_value, tar, pc, can[tar], data)
+        # update pc set and candidate set
+        pc, can = update_forward(p_value, tar, pc, can, prune, threshold)
 
-    #backward phase of MMPC
-    pc_con = {}
-    for tar in data:
-        pc[tar].reverse()
-        pc_con[tar] = [pc[tar][0]]
-        pc_rest = pc[tar][1:]
+    return pc, can
 
-        while pc_rest:
-            p = independence_test_ternary(tar, pc_con[tar], pc_rest, data, state)
+# backward phase of MMPC
+def mmpc_backward(tar, pc, can, data, prune, threshold):
+    # tar: target variable
+    # pc: parents and children set of the target variable
+    # can: candidate variable for the pc set of the target variable
+    # data: input data
+    # prune: prune the target variable in the candidate variable set for those variables which are independent with the target one
 
-            if p:
-                for che in pc_rest:
-                    if che in p:
-                        pc_con[tar].append(che)
-                        p.pop(che)
-                        break
+    # transfer the variable in pc set to candidate set except the last one
+    can[tar] = pc[0: -1]
+    pc_output = []
+    pc_output.append(pc[-1])
+    can[tar].reverse()
 
-            pc_rest_temp = []
-            for che in pc_rest:
-                if che in p:
-                    pc_rest_temp.append(che)
+    while can[tar]:
+        # run conditional independence test between each candidate varialbe and target variable
+        p_value = independence_test({}, tar, pc_output, can[tar], data)
+        # update pc set and candidate set
+        pc_output, can = update_backward(p_value, tar, pc_output, can, prune, threshold)
 
-            pc_rest = pc_rest_temp.copy()
+    return pc_output, can
 
-    return pc_con
+# conditional independence test
+def independence_test(p_value, tar, pc, can, data):
 
-def asymmetry_test(pc):
-    for key, value in pc.items():
-        for var in value:
-            if not (key in pc[var]):
-                pc[key].remove(var)
+    for can_var in can:
+        if can_var not in p_value.keys():
+            p_value[can_var] = 0
+        if len(pc) == 0:
+            # count the value in contingency table
+            contingency_table = count_number(tar, pc, can_var, data)
+            # compute p-value for each candidate variable
+            p_value[can_var] = max(p_value_calculator(contingency_table, pc), p_value[can_var])
+        else:
+            for r in range(len(pc)):
+                for pc_sub in itertools.combinations(pc[0 : -1], r):
+
+                    # don't check the separating set checked before
+                    pc_con = list(pc_sub)
+                    pc_con.append(pc[-1])
+                    # count the value in contingency table
+                    contingency_table = count_number(tar, pc_con, can_var, data)
+
+                    # compute p-value for each candidate variable
+                    p_value[can_var] = max(p_value_calculator(contingency_table, pc_con), p_value[can_var])
+    return p_value
+
+# contingency table calculator
+def count_number(tar, pc, can, data):
+
+    # initialise the contingency table
+    contingency_table = {}
+    contingency_table['S_kij'] = {}
+    contingency_table['S_kj'] = {}
+
+    state = {}
+    for i in data:
+        state[i] = np.unique(data[i]).tolist()
+
+    if pc:
+        # initialise each individual space in contingency table
+        for key_pc, value_pc in data.groupby(pc):
+            contingency_table['S_kij'][key_pc] = {}
+            contingency_table['S_kj'][key_pc] = {}
+
+            for key_tar, value_tar in value_pc.groupby(tar):
+                contingency_table['S_kij'][key_pc][key_tar] = {k: v.shape[0] for k, v in value_tar.groupby(can)}
+
+            contingency_table['S_kj'][key_pc] = {k: v.shape[0] for k, v in value_pc.groupby(can)}
+
+            # make sure every situation is recorded including 0 appearance
+            for tar_state in state[tar]:
+                if tar_state not in contingency_table['S_kij'][key_pc]:
+                    contingency_table['S_kij'][key_pc][tar_state] = {}
+                for can_state in state[can]:
+                    if can_state not in contingency_table['S_kij'][key_pc][tar_state]:
+                        contingency_table['S_kij'][key_pc][tar_state][can_state] = 0
+
+            for can_state in state[can]:
+                if can_state not in contingency_table['S_kj'][key_pc]:
+                    contingency_table['S_kj'][key_pc][can_state] = 0
+    else:
+        # initialise each individual space in contingency table
+        for key_tar, value_tar in data.groupby(tar):
+            contingency_table['S_kij'][key_tar] = {k: v.shape[0] for k,v in value_tar.groupby(can)}
+
+        # make sure every situation is recorded including 0 appearance
+        for tar_state in state[tar]:
+            if tar_state not in contingency_table['S_kij']:
+                contingency_table['S_kij'][tar_state] = {}
+            for can_state in state[can]:
+                if can_state not in contingency_table['S_kij'][tar_state]:
+                    contingency_table['S_kij'][tar_state][can_state] = 0
+
+        contingency_table['S_kj'] = {k: v.shape[0] for k, v in data.groupby(can)}
+    return contingency_table
+
+# p-value calculator (based on G-test)
+def p_value_calculator(contingency_table, pc):
+
+    G = 0
+    if pc:
+        for key_pc in contingency_table['S_kij']:
+            for key_tar in contingency_table['S_kij'][key_pc]:
+                for key_can in contingency_table['S_kij'][key_pc][key_tar]:
+                    if contingency_table['S_kij'][key_pc][key_tar][key_can] != 0:
+                        G = G + 2 * contingency_table['S_kij'][key_pc][key_tar][key_can] * np.log(
+                            contingency_table['S_kij'][key_pc][key_tar][key_can] * sum(contingency_table['S_kj'][key_pc].values()) /
+                            sum(contingency_table['S_kij'][key_pc][key_tar].values()) / contingency_table['S_kj'][key_pc][key_can])
+
+        dof = len(contingency_table['S_kij']) * (len(contingency_table['S_kij'][key_pc]) - 1) * (
+                    len(contingency_table['S_kj'][key_pc]) - 1)
+    else:
+        for key_tar in contingency_table['S_kij']:
+            for key_can in contingency_table['S_kij'][key_tar]:
+                if contingency_table['S_kij'][key_tar][key_can] != 0:
+                    G = G + 2 * contingency_table['S_kij'][key_tar][key_can] * np.log(
+                        contingency_table['S_kij'][key_tar][key_can] * sum(contingency_table['S_kj'].values()) /
+                        sum(contingency_table['S_kij'][key_tar].values()) / contingency_table['S_kj'][key_can])
+
+        dof = (len(contingency_table['S_kij']) - 1) * (len(contingency_table['S_kj']) - 1)
+
+    p_value = chi2.sf(G, dof)
+    return p_value
+
+# pc and candidate set update function for forward phase
+def update_forward(p_value, tar, pc, can, prune, threshold):
+
+    # add the variable with lowest p-value to pc set and remove it from the candidate set
+    sorted_p_value = sorted(p_value.items(), key = operator.itemgetter(1))
+
+    if sorted_p_value[0][1] <= threshold:
+        pc.append(sorted_p_value[0][0])
+        can[tar].remove(sorted_p_value[0][0])
+        p_value.pop(sorted_p_value[0][0], None)
+
+    # remove independent variables from candidate set
+    independent_can = [x for x in sorted_p_value if x[1] > threshold]
+    for ind in independent_can:
+        can[tar].remove(ind[0])
+        p_value.pop(ind[0])
+        # prune the target variable from the candidate set of the candidate variable if they are independent
+        if prune:
+            if tar in can[ind[0]]:
+                can[ind[0]].remove(tar)
+    return pc, can
+
+# pc and candidate set update function for backward phase
+def update_backward(p_value, tar, pc, can, prune, threshold):
+
+    # initialise the output candidate set
+    can_output = []
+
+    # signal of import variable
+    sig_import = 1
+    for can_var in can[tar]:
+        if p_value[can_var] <= threshold:
+            if sig_import:
+                pc.append(can_var)
+                sig_import = 0
+            else:
+                can_output.append(can_var)
+        else:
+            if prune:
+                if tar in can[can_var]:
+                    can[can_var].remove(tar)
+
+    can[tar] = can_output
+
+    return pc, can
+
+# symmetry check for pc set
+def symmetry(pc):
+
+    for var in pc:
+        pc_remove = []
+        for par in pc[var]:
+            if var not in pc[par]:
+                pc_remove.append(par)
+        if pc_remove:
+            for par in pc_remove:
+                pc[var].remove(par)
     return pc
-
-def independence_test_binary(tar, data, state):
-    tar_size = len(state[tar])
-    num_tar = np.zeros((tar_size, 1))
-    num_che = {}
-    num_co = {}
-
-    for che in state.keys():
-        if not (che is tar):
-            che_size = len(state[che])
-            num_che[che] = np.zeros((che_size, 1))
-            num_co[che] = np.zeros((che_size, tar_size))
-
-    for i in range(data.shape[0]):
-        tar_state = state[tar].index(data[tar][i])
-        num_tar[tar_state] = num_tar[tar_state] + 1
-
-        for che in num_che.keys():
-            che_state = state[che].index(data[che][i])
-            num_che[che][che_state] = num_che[che][che_state] + 1
-            num_co[che][che_state][tar_state] = num_co[che][che_state][tar_state] + 1
-
-    p = {}
-    for che in num_che.keys():
-        G_temp = num_co[che] * np.log(num_co[che] * data.shape[0] / num_che[che].dot(num_tar.T))
-        G_temp = G_temp.ravel()
-
-        G = 2 * sum(G_temp[i] for i in range(len(G_temp)) if not np.isnan(G_temp[i]))
-        # p_temp = 1 - stats.chi2.cdf(G, (len(state[tar]) - 1) * (len(state[che]) - 1))
-
-        dof = (len(state[tar]) - 1) * (len(state[che]) - 1)
-
-        p_temp = chi2.sf(G, dof)
-        if p_temp < 0.05:
-            p[che] = p_temp
-
-    pc_con = []
-    if p:
-        pc_con.append(min(p, key = p.get))
-        p.pop(min(p, key = p.get))
-    pc_rest = []
-    while p:
-        pc_rest.append(min(p, key = p.get))
-        p.pop(min(p, key = p.get))
-
-    return pc_con, pc_rest
-
-def independence_test_ternary(tar, pc_con, pc_rest, data, state):
-    # initialise the counter
-    num = {}
-    size_con = 1
-    for var_con in pc_con:
-        size_con = size_con * len(state[var_con])
-    num['con'] = np.zeros((size_con, 1))
-
-    size_tar = len(state[tar])
-    num[tar] = num['con'].dot(np.zeros((1, size_tar)))
-
-    size_che = {}
-    for che in pc_rest:
-        che_set = {}
-        size_che[che] = len(state[che])
-        che_set['self'] = num['con'].dot(np.zeros((1, size_che[che])))
-        che_set['co'] = np.expand_dims(che_set['self'], axis = -1).dot(np.zeros((1, size_tar)))
-
-        num[che] = che_set
-
-    # traverse the data set to count the S
-    for i in range(data.shape[0]):
-        con_state = 0
-        for var_con in pc_con:
-            con_state = con_state * len(state[var_con]) + state[var_con].index(data[var_con][i])
-
-        num['con'][con_state] = num['con'][con_state] + 1
-
-        tar_state = state[tar].index(data[tar][i])
-
-        num[tar][con_state][tar_state] = num[tar][con_state][tar_state] + 1
-
-        for che in pc_rest:
-            che_state = state[che].index(data[che][i])
-            num[che]['self'][con_state][che_state] = num[che]['self'][con_state][che_state] + 1
-            num[che]['co'][con_state][che_state][tar_state] = num[che]['co'][con_state][che_state][tar_state] + 1
-
-    #check the conditional independence by using G2 statistic
-    p = {}
-    for che in pc_rest:
-        G = 0
-        for i in range(size_con):
-            G_ori = num[che]['co'][i] * np.log(num[che]['co'][i] * num['con'][i] / np.expand_dims(num[che]['self'][i], axis= -1).dot(np.expand_dims(num[tar][i], axis= 1).T))
-            G_ori = G_ori.ravel()
-
-            G = G + 2 * sum(G_ori[j] for j in range(len(G_ori)) if not np.isnan(G_ori[j]))
-
-        # p_temp = 1 - stats.chi2.cdf(G, (np.count_nonzero(num[che]['co']) - np.count_nonzero(num[che]['self']) - np.count_nonzero(num[tar]) + np.count_nonzero(num['con'])))
-
-        # dof = (size_tar - 1) * (size_che[che] - 1) * size_con
-        dof = (np.count_nonzero(num[tar]) - np.count_nonzero(num['con'])) * (size_che[che] - 1)
-        p_temp = chi2.sf(G, dof)
-        if p_temp < 0.05:
-            p[che] = p_temp
-
-    return p

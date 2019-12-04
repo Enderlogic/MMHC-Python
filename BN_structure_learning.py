@@ -1,33 +1,28 @@
 import pandas as pd
-# import csv
-from mmpc import mmpc_forward, mmpc_backward, asymmetry_test
-from hc import hc
+from mmhc import mmhc
+from graphviz import Digraph
 
-# data_training = pd.read_csv('Input/trainingData.csv')
-data_training = pd.read_csv('Input/alarm5000.csv')
-# data_training = csv.reader(open("Input/alarm5000.csv"), delimiter=";")
+# input data for learning
+input_file = 'alarm1000'
+data_training = pd.read_csv('Input/' + input_file + '.csv')
 
+# input data for evaluation
+# (to be finishied)
 
-variables_name = data_training.keys()
+# learn bayesian network from data
+dag = mmhc(data_training, score_function = 'bic', prune = True, threshold = 0.05)
 
-state = {}
+# plot the graph
+dot = Digraph()
+for k, v in dag.items():
+    if k not in dot.body:
+        dot.node(k)
+    if v:
+        for v_ele in v:
+            if v_ele not in dot.body:
+                dot.node(v_ele)
+            dot.edge(v_ele, k)
 
-count = 0
-
-# extract data from original file and make a list for variables
-for i in data_training:
-    state_temp = []
-
-    for j in range(data_training[i].size):
-        if not (data_training[i][j] in state_temp):
-            state_temp.append(data_training[i][j])
-    state[i] = state_temp
-
-pc = mmpc_forward(data_training, state)
-pc = mmpc_backward(pc, data_training, state)
-
-pc = asymmetry_test(pc)
-
-dag = hc(data_training, pc, state, 'bdeu')
-
-a = 1
+dot.render('output/' + input_file + '.gv', view=True)
+# evaluate the result
+# (to be finished)
