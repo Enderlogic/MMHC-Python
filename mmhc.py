@@ -4,7 +4,7 @@ import time
 
 def mmhc(data, score_function = 'bdeu', prune = False, threshold = 0.05):
     # data: input training data
-    # score: the type of score function, currently support 'bdeu'
+    # score: the type of score function, currently support 'bdeu', 'bic'
     # prune: prune candidate variable by previous results
     # threshold: threshold for CI test
 
