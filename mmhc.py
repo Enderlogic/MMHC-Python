@@ -3,10 +3,13 @@ from hc import hc
 import time
 
 def mmhc(data, score_function = 'bdeu', prune = False, threshold = 0.05):
+    # input:
     # data: input training data
     # score: the type of score function, currently support 'bdeu', 'bic'
     # prune: prune candidate variable by previous results
     # threshold: threshold for CI test
+    # output:
+    # dag: a dictionary containing variables with their parents
 
     # initialise pc set as empty for all variables
     pc = {}
@@ -19,12 +22,22 @@ def mmhc(data, score_function = 'bdeu', prune = False, threshold = 0.05):
 
     start_time = time.time()
     # run MMPC on each variable
+    # forward_time = 0
+    # backward_time = 0
     for tar in data:
         # forward phase
         pc[tar] = []
+        # start_time = time.time()
         pc[tar], can = mmpc_forward(tar, pc[tar], can, data, prune, threshold)
+        # end_time = time.time()
+        # forward_time = forward_time + end_time - start_time
+        # print('run time for forward:', end_time - start_time, 'seconds')
         # backward phase
+        # start_time = time.time()
         pc[tar], can = mmpc_backward(tar, pc[tar], can, data, prune, threshold)
+        # end_time = time.time()
+        # backward_time = backward_time + end_time - start_time
+        # print('run time for backward', end_time - start_time, 'seconds')
 
     end_time = time.time()
     print("run time for mmpc:", end_time - start_time, "seconds")

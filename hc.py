@@ -3,10 +3,17 @@ from scipy.special import gammaln
 import copy
 
 def score_diff(gra1, gra2, data, score_function):
+    remain = []
+    for tar in data:
+        if set(gra1[tar]) != set(gra2[tar]):
+            remain.append(tar)
+            remain.extend(gra1[tar])
+            remain.extend(gra2[tar])
+    remain = list(set(remain))
     if score_function == 'bdeu':
-        sco_diff = score_bdeu_diff(gra1, gra2, data)
+        sco_diff = score_bdeu_diff(gra1, gra2, data[remain])
     elif score_function == 'bic':
-        sco_diff = score_bic_diff(gra1, gra2, data)
+        sco_diff = score_bic_diff(gra1, gra2, data[remain])
     return sco_diff
 
 # compare the bdeu score between gra1 and gra2, a positive value means bdeu(gra2) > bdeu(gra1)
@@ -15,38 +22,32 @@ def score_bdeu_diff(gra1, gra2, data):
     bdeu_diff = 0
     for tar in data:
         if set(gra1[tar]) != set(gra2[tar]):
-            contingency_table1 = {}
-            contingency_table2 = {}
             q1 = 1
             q2 = 1
             r = len(data[tar].unique())
 
             if gra1[tar]:
-                contingency_table1['N_jk'] = {}
-                for key_par, value_par in data.groupby(gra1[tar]):
-                    contingency_table1['N_jk'][key_par] = {k:v.shape[0] for k, v in value_par.groupby(tar)}
+                N_jk = {k: v[tar].value_counts().to_dict() for k, v in data.groupby(gra1[tar])}
 
                 for par_var in gra1[tar]:
                     q1 = q1 * len(data[par_var].unique())
                 alp1_j = iss / q1
                 alp1_jk = iss / q1 / r
 
-                for key_par in contingency_table1['N_jk']:
-                    for key_tar in contingency_table1['N_jk'][key_par]:
-                        bdeu_diff = bdeu_diff - gammaln(alp1_jk + contingency_table1['N_jk'][key_par][key_tar]) + gammaln(alp1_jk)
-                    bdeu_diff = bdeu_diff - gammaln(alp1_j) + gammaln(alp1_j + sum(contingency_table1['N_jk'][key_par].values()))
+                for key_par in N_jk:
+                    for key_tar in N_jk[key_par]:
+                        bdeu_diff = bdeu_diff - gammaln(alp1_jk + N_jk[key_par][key_tar]) + gammaln(alp1_jk)
+                    bdeu_diff = bdeu_diff - gammaln(alp1_j) + gammaln(alp1_j + sum(N_jk[key_par].values()))
             else:
                 alp1_j = iss
                 alp1_jk = iss / r
-                contingency_table1['N_k'] =  {k:v.shape[0] for k, v in data.groupby(tar)}
-                bdeu_diff = bdeu_diff - gammaln(alp1_j) + gammaln(alp1_j + data[tar].shape[0])
-                for key_tar in contingency_table1['N_k']:
-                    bdeu_diff = bdeu_diff - gammaln(alp1_jk + contingency_table1['N_k'][key_tar]) + gammaln(alp1_jk)
+                N_k = data[tar].value_counts().to_dict()
+                bdeu_diff = bdeu_diff - gammaln(alp1_j) + gammaln(alp1_j + len(data))
 
+                for key_tar in N_k:
+                    bdeu_diff = bdeu_diff - gammaln(alp1_jk + N_k[key_tar]) + gammaln(alp1_jk)
             if gra2[tar]:
-                contingency_table2['N_jk'] = {}
-                for key_par, value_par in data.groupby(gra2[tar]):
-                    contingency_table2['N_jk'][key_par] = {k:v.shape[0] for k, v in value_par.groupby(tar)}
+                N_jk = {k: v[tar].value_counts().to_dict() for k, v in data.groupby(gra2[tar])}
 
                 for par_var in gra2[tar]:
                     q2 = q2 * len(data[par_var].unique())
@@ -54,17 +55,19 @@ def score_bdeu_diff(gra1, gra2, data):
                 alp2_j = iss / q2
                 alp2_jk = iss / q2 / r
 
-                for key_par in contingency_table2['N_jk']:
-                    for key_tar in contingency_table2['N_jk'][key_par]:
-                        bdeu_diff = bdeu_diff + gammaln(alp2_jk + contingency_table2['N_jk'][key_par][key_tar]) - gammaln(alp2_jk)
-                    bdeu_diff = bdeu_diff + gammaln(alp2_j) - gammaln(alp2_j + sum(contingency_table2['N_jk'][key_par].values()))
+                for key_par in N_jk:
+                    for key_tar in N_jk[key_par]:
+                        bdeu_diff = bdeu_diff + gammaln(alp2_jk + N_jk[key_par][key_tar]) - gammaln(alp2_jk)
+                    bdeu_diff = bdeu_diff + gammaln(alp2_j) - gammaln(alp2_j + sum(N_jk[key_par].values()))
             else:
                 alp2_j = iss
                 alp2_jk = iss / r
-                contingency_table2['N_k'] = {k: v.shape[0] for k, v in data.groupby(tar)}
-                bdeu_diff = bdeu_diff + gammaln(alp2_j) - gammaln(alp2_j + data[tar].shape[0])
-                for key_tar in contingency_table2['N_k']:
-                    bdeu_diff = bdeu_diff + gammaln(alp2_jk + contingency_table2['N_k'][key_tar]) - gammaln(alp2_jk)
+                N_k = data[tar].value_counts().to_dict()
+
+                bdeu_diff = bdeu_diff + gammaln(alp2_j) - gammaln(alp2_j + len(data))
+
+                for key_tar in N_k:
+                    bdeu_diff = bdeu_diff + gammaln(alp2_jk + N_k[key_tar]) - gammaln(alp2_jk)
     return bdeu_diff
 
 # compare the bic score between gra1 and gra2, a positive value means bdeu(gra2) > bdeu(gra1)
@@ -72,51 +75,50 @@ def score_bic_diff(gra1, gra2, data):
     bic_diff = 0
     for tar in data:
         if set(gra1[tar]) != set(gra2[tar]):
-            contingency_table1 = {}
-            contingency_table2 = {}
             q1 = 1
             q2 = 1
             r = len(data[tar].unique())
 
             if gra1[tar]:
-                contingency_table1['N_jk'] = {}
-                for key_par, value_par in data.groupby(gra1[tar]):
-                    contingency_table1['N_jk'][key_par] = {k: v.shape[0] for k, v in value_par.groupby(tar)}
+                N_jk = {k: v[tar].value_counts().to_dict() for k, v in data.groupby(gra1[tar])}
 
                 for par_var in gra1[tar]:
                     q1 = q1 * len(data[par_var].unique())
 
-                for key_par in contingency_table1['N_jk']:
-                    for key_tar in contingency_table1['N_jk'][key_par]:
-                        bic_diff = bic_diff - contingency_table1['N_jk'][key_par][key_tar] * np.log(contingency_table1['N_jk'][key_par][key_tar] / sum(contingency_table1['N_jk'][key_par].values()))
+                for key_par in N_jk:
+                    for key_tar in N_jk[key_par]:
+                        bic_diff = bic_diff - N_jk[key_par][key_tar] * np.log(N_jk[key_par][key_tar] / sum(N_jk[key_par].values()))
 
             else:
-                contingency_table1['N_k'] = {k: v.shape[0] for k, v in data.groupby(tar)}
-                for key_tar in contingency_table1['N_k']:
-                    bic_diff = bic_diff - contingency_table1['N_k'][key_tar] * np.log(contingency_table1['N_k'][key_tar] / data.shape[0])
+                N_k = data[tar].value_counts().to_dict()
+
+                for key_tar in N_k:
+                    bic_diff = bic_diff - N_k[key_tar] * np.log(N_k[key_tar] / len(data))
 
             if gra2[tar]:
-                contingency_table2['N_jk'] = {}
-                for key_par, value_par in data.groupby(gra2[tar]):
-                    contingency_table2['N_jk'][key_par] = {k: v.shape[0] for k, v in value_par.groupby(tar)}
+                N_jk = {k: v[tar].value_counts().to_dict() for k, v in data.groupby(gra2[tar])}
 
                 for par_var in gra2[tar]:
                     q2 = q2 * len(data[par_var].unique())
 
-                for key_par in contingency_table2['N_jk']:
-                    for key_tar in contingency_table2['N_jk'][key_par]:
-                        bic_diff = bic_diff + contingency_table2['N_jk'][key_par][key_tar] * np.log(contingency_table2['N_jk'][key_par][key_tar] / sum(contingency_table2['N_jk'][key_par].values()))
-
+                for key_par in N_jk:
+                    for key_tar in N_jk[key_par]:
+                        bic_diff = bic_diff + N_jk[key_par][key_tar] * np.log(N_jk[key_par][key_tar] / sum(N_jk[key_par].values()))
             else:
-                contingency_table2['N_k'] = {k: v.shape[0] for k, v in data.groupby(tar)}
-                for key_tar in contingency_table2['N_k']:
-                    bic_diff = bic_diff + contingency_table2['N_k'][key_tar] * np.log(contingency_table2['N_k'][key_tar] / data.shape[0])
+                N_k = data[tar].value_counts().to_dict()
+                for key_tar in N_k:
+                    bic_diff = bic_diff + N_k[key_tar] * np.log(N_k[key_tar] / len(data))
 
             bic_diff = bic_diff + np.log(data.shape[0]) / 2 * (r - 1) * (q1 - q2)
     return bic_diff
 
-# hill climbing algorithm
 def hc(data, pc, score_function):
+    # input:
+    # data: training data
+    # pc: PC set for variables
+    # score_function: score function used in hill climbing algorithm
+    # output:
+    # gra: a dictionary containing variables with their parents
 
     gra = {}
     gra_temp = {}

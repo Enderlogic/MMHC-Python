@@ -2,6 +2,7 @@ import numpy as np
 from scipy.stats.distributions import chi2
 import operator
 import itertools
+import time
 
 # forward phase of MMPC
 def mmpc_forward(tar, pc, can, data, prune, threshold):
@@ -12,7 +13,6 @@ def mmpc_forward(tar, pc, can, data, prune, threshold):
     # prune: prune the target variable in the candidate variable set for those variables which are independent with the target one
 
     # run until no candidate variable for current variable
-
     p_value = {}
     for can_var in can[tar]:
         p_value[can_var] = 0
@@ -22,7 +22,6 @@ def mmpc_forward(tar, pc, can, data, prune, threshold):
         p_value = independence_test(p_value, tar, pc, can[tar], data)
         # update pc set and candidate set
         pc, can = update_forward(p_value, tar, pc, can, prune, threshold)
-
     return pc, can
 
 # backward phase of MMPC
@@ -49,103 +48,70 @@ def mmpc_backward(tar, pc, can, data, prune, threshold):
 
 # conditional independence test
 def independence_test(p_value, tar, pc, can, data):
-
     for can_var in can:
         if can_var not in p_value.keys():
             p_value[can_var] = 0
         if len(pc) == 0:
             # count the value in contingency table
-            contingency_table = count_number(tar, pc, can_var, data)
+            # start_time = time.time()
+            N_kij, dof = count_number(tar, pc, can_var, data[[tar, can_var]])
+            # end_time1 = time.time()
+            # print(end_time1 - start_time)
             # compute p-value for each candidate variable
-            p_value[can_var] = max(p_value_calculator(contingency_table, pc), p_value[can_var])
+            p_value[can_var] = max(p_value_calculator(N_kij, pc, dof), p_value[can_var])
+            # end_time2 = time.time()
+            # print('pc = 0, count_number:', end_time1 - start_time, 's')
+            # print('pc = 0, p_value_calculator:', end_time2 - end_time1, 's')
         else:
             for r in range(len(pc)):
                 for pc_sub in itertools.combinations(pc[0 : -1], r):
-
                     # don't check the separating set checked before
                     pc_con = list(pc_sub)
                     pc_con.append(pc[-1])
                     # count the value in contingency table
-                    contingency_table = count_number(tar, pc_con, can_var, data)
-
+                    # start_time = time.time()
+                    contingency_table, dof = count_number(tar, pc_con, can_var, data[[tar, can_var] + pc_con])
+                    # end_time1 = time.time()
                     # compute p-value for each candidate variable
-                    p_value[can_var] = max(p_value_calculator(contingency_table, pc_con), p_value[can_var])
+                    p_value[can_var] = max(p_value_calculator(contingency_table, pc_con, dof), p_value[can_var])
+                    # end_time2 = time.time()
+                    # print('pc != 0, count_number:', end_time1 - start_time, 's')
+                    # print('pc != 0 , p_value_calculator:', end_time2 - end_time1, 's')
     return p_value
 
 # contingency table calculator
 def count_number(tar, pc, can, data):
-
-    # initialise the contingency table
-    contingency_table = {}
-    contingency_table['S_kij'] = {}
-    contingency_table['S_kj'] = {}
-
-    state = {}
-    for i in data:
-        state[i] = np.unique(data[i]).tolist()
-
     if pc:
-        # initialise each individual space in contingency table
+        N_kij = {}
+        dof = (data[tar].nunique() - 1) * (data[can].nunique() - 1)
+        for pc_var in pc:
+            dof = dof * data[pc_var].nunique()
         for key_pc, value_pc in data.groupby(pc):
-            contingency_table['S_kij'][key_pc] = {}
-            contingency_table['S_kj'][key_pc] = {}
-
-            for key_tar, value_tar in value_pc.groupby(tar):
-                contingency_table['S_kij'][key_pc][key_tar] = {k: v.shape[0] for k, v in value_tar.groupby(can)}
-
-            contingency_table['S_kj'][key_pc] = {k: v.shape[0] for k, v in value_pc.groupby(can)}
-
-            # make sure every situation is recorded including 0 appearance
-            for tar_state in state[tar]:
-                if tar_state not in contingency_table['S_kij'][key_pc]:
-                    contingency_table['S_kij'][key_pc][tar_state] = {}
-                for can_state in state[can]:
-                    if can_state not in contingency_table['S_kij'][key_pc][tar_state]:
-                        contingency_table['S_kij'][key_pc][tar_state][can_state] = 0
-
-            for can_state in state[can]:
-                if can_state not in contingency_table['S_kj'][key_pc]:
-                    contingency_table['S_kj'][key_pc][can_state] = 0
+            N_kij[key_pc] = {k: v[can].value_counts().to_dict() for k, v in value_pc.groupby(tar)}
     else:
-        # initialise each individual space in contingency table
-        for key_tar, value_tar in data.groupby(tar):
-            contingency_table['S_kij'][key_tar] = {k: v.shape[0] for k,v in value_tar.groupby(can)}
-
-        # make sure every situation is recorded including 0 appearance
-        for tar_state in state[tar]:
-            if tar_state not in contingency_table['S_kij']:
-                contingency_table['S_kij'][tar_state] = {}
-            for can_state in state[can]:
-                if can_state not in contingency_table['S_kij'][tar_state]:
-                    contingency_table['S_kij'][tar_state][can_state] = 0
-
-        contingency_table['S_kj'] = {k: v.shape[0] for k, v in data.groupby(can)}
-    return contingency_table
+        dof = (data[tar].nunique() - 1) * (data[can].nunique() - 1)
+        N_kij = {k: v[can].value_counts().to_dict() for k, v in data.groupby(tar)}
+    return N_kij, dof
 
 # p-value calculator (based on G-test)
-def p_value_calculator(contingency_table, pc):
-
+def p_value_calculator(N_kij, pc, dof):
     G = 0
     if pc:
-        for key_pc in contingency_table['S_kij']:
-            for key_tar in contingency_table['S_kij'][key_pc]:
-                for key_can in contingency_table['S_kij'][key_pc][key_tar]:
-                    if contingency_table['S_kij'][key_pc][key_tar][key_can] != 0:
-                        G = G + 2 * contingency_table['S_kij'][key_pc][key_tar][key_can] * np.log(
-                            contingency_table['S_kij'][key_pc][key_tar][key_can] * sum(contingency_table['S_kj'][key_pc].values()) /
-                            sum(contingency_table['S_kij'][key_pc][key_tar].values()) / contingency_table['S_kj'][key_pc][key_can])
-
-        dof = len(contingency_table['S_kij']) * (len(contingency_table['S_kij'][key_pc]) - 1) * (
-                    len(contingency_table['S_kj'][key_pc]) - 1)
+        for key_pc in N_kij:
+            N_kj = {}
+            for key_tar in N_kij[key_pc]:
+                N_kj = {k : N_kj.get(k, 0) + N_kij[key_pc][key_tar].get(k, 0) for k in set(N_kj) | set(N_kij[key_pc][key_tar])}
+            for key_tar in N_kij[key_pc]:
+                for key_can in N_kij[key_pc][key_tar]:
+                    G = G + 2 * N_kij[key_pc][key_tar][key_can] * np.log(N_kij[key_pc][key_tar][key_can] * sum(N_kj.values()) /
+                        sum(N_kij[key_pc][key_tar].values()) / N_kj[key_can])
     else:
-        for key_tar in contingency_table['S_kij']:
-            for key_can in contingency_table['S_kij'][key_tar]:
-                if contingency_table['S_kij'][key_tar][key_can] != 0:
-                    G = G + 2 * contingency_table['S_kij'][key_tar][key_can] * np.log(
-                        contingency_table['S_kij'][key_tar][key_can] * sum(contingency_table['S_kj'].values()) /
-                        sum(contingency_table['S_kij'][key_tar].values()) / contingency_table['S_kj'][key_can])
-
-        dof = (len(contingency_table['S_kij']) - 1) * (len(contingency_table['S_kj']) - 1)
+        N_kj = {}
+        for key_tar in N_kij:
+            N_kj = {k : N_kj.get(k, 0) + N_kij[key_tar].get(k, 0) for k in set(N_kj) | set(N_kij[key_tar])}
+        for key_tar in N_kij:
+            for key_can in N_kij[key_tar]:
+                G = G + 2 * N_kij[key_tar][key_can] * np.log(N_kij[key_tar][key_can] * sum(N_kj.values()) /sum(N_kij[key_tar].values()) / N_kj[key_can])
 
     p_value = chi2.sf(G, dof)
     return p_value
