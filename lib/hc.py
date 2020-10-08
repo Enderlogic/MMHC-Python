@@ -135,33 +135,76 @@ def hc(data, pc, score_function):
         edge_candidate = []
         gra_temp = copy.deepcopy(gra)
 
+        cyc_flag = False
+
         for tar in data:
             # attempt to add edges
             for pc_var in pc[tar]:
-                gra_temp[tar].append(pc_var)
+                underchecked = [pc_var]
+                checked = []
+                while underchecked:
+                    if cyc_flag:
+                        break
+                    underchecked_copy = copy.deepcopy(underchecked)
+                    for gra_par in underchecked_copy:
+                        if gra[gra_par]:
+                            if tar in gra[gra_par]:
+                                cyc_flag = True
+                                break
+                            else:
+                                for key in gra[gra_par]:
+                                    if key not in checked:
+                                        underchecked.append(key)
+                        underchecked.remove(gra_par)
+                        checked.append(gra_par)
 
-                score_diff_temp = score_diff(gra, gra_temp, data, score_function)
-                if score_diff_temp > diff:
-                    diff = score_diff_temp
-                    edge_candidate = [tar, pc_var, 'a']
+                if cyc_flag:
+                    cyc_flag = False
+                else:
+                    gra_temp[tar].append(pc_var)
 
-                gra_temp[tar].remove(pc_var)
+                    score_diff_temp = score_diff(gra, gra_temp, data, score_function)
+                    if (score_diff_temp - diff > -1e-10):
+                        diff = score_diff_temp
+                        edge_candidate = [tar, pc_var, 'a']
+
+                    gra_temp[tar].remove(pc_var)
 
             for par_var in gra[tar]:
                 # attempt to reverse edges
                 gra_temp[par_var].append(tar)
                 gra_temp[tar].remove(par_var)
+                underchecked = [tar]
+                checked = []
+                while underchecked:
+                    if cyc_flag:
+                        break
+                    underchecked_copy = copy.deepcopy(underchecked)
+                    for gra_par in underchecked_copy:
+                        if gra_temp[gra_par]:
+                            if par_var in gra_temp[gra_par]:
+                                cyc_flag = True
+                                break
+                            else:
+                                for key in gra_temp[gra_par]:
+                                    if key not in checked:
+                                        underchecked.append(key)
+                        underchecked.remove(gra_par)
+                        checked.append(gra_par)
 
-                score_diff_temp = score_diff(gra, gra_temp, data, score_function)
-                if score_diff_temp > diff:
-                    diff = score_diff_temp
-                    edge_candidate = [tar, par_var, 'r']
+                if cyc_flag:
+                    cyc_flag = False
+                else:
+                    score_diff_temp = score_diff(gra, gra_temp, data, score_function)
+                    if score_diff_temp - diff > 1e-10:
+                        diff = score_diff_temp
+                        edge_candidate = [tar, par_var, 'r']
 
                 gra_temp[par_var].remove(tar)
 
                 # attempt to delete edges
                 score_diff_temp = score_diff(gra, gra_temp, data, score_function)
-                if score_diff_temp > diff:
+                if (score_diff_temp - diff > -1e-10):
                     diff = score_diff_temp
                     edge_candidate = [tar, par_var, 'd']
 
@@ -183,4 +226,10 @@ def hc(data, pc, score_function):
                 pc[edge_candidate[0]].append(edge_candidate[1])
                 pc[edge_candidate[1]].append(edge_candidate[0])
 
-    return gra
+    dag = {}
+    for var in gra:
+        dag[var] = {}
+        dag[var]['par'] = gra[var]
+        dag[var]['nei'] = []
+
+    return dag

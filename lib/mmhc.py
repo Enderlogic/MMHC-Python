@@ -1,5 +1,5 @@
-from mmpc import mmpc_forward, mmpc_backward, symmetry
-from hc import hc
+from lib.mmpc import mmpc_forward, mmpc_backward, symmetry
+from lib.hc import hc
 import time
 
 def mmhc(data, score_function = 'bdeu', prune = False, threshold = 0.05):
@@ -34,10 +34,12 @@ def mmhc(data, score_function = 'bdeu', prune = False, threshold = 0.05):
         # print('run time for forward:', end_time - start_time, 'seconds')
         # backward phase
         # start_time = time.time()
-        pc[tar], can = mmpc_backward(tar, pc[tar], can, data, prune, threshold)
+        if pc[tar]:
+            pc[tar], can = mmpc_backward(tar, pc[tar], can, data, prune, threshold)
         # end_time = time.time()
         # backward_time = backward_time + end_time - start_time
         # print('run time for backward', end_time - start_time, 'seconds')
+        print(tar)
 
     end_time = time.time()
     print("run time for mmpc:", end_time - start_time, "seconds")
