@@ -1,78 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="7a2d1ee2-3a00-4f4e-8dd3-5822a9867a64" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Input/alarm.rds" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Input/alarm_1000.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Input/ecoli70.rds" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Input/ecoli70_1000.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/debug.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/alarm_1000.gv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/alarm_1000.gv.pdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test.R" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/test.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/test.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/BN_structure_learning.py" beforeDir="false" afterPath="$PROJECT_DIR$/BN_structure_learning.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm0.001.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm0.002.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm0.005.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm0.01.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm0.05.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm0.1.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm0.3.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm0.499.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm1000.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm10000.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm1e-04.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm500.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/alarm5000.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/hailfinder.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/hailfinder5000.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/insurance.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/insurance5000.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Input/munin4.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/accessory.py" beforeDir="false" afterPath="$PROJECT_DIR$/lib/accessory.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/evaluation.py" beforeDir="false" afterPath="$PROJECT_DIR$/lib/evaluation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/hc.py" beforeDir="false" afterPath="$PROJECT_DIR$/lib/hc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/mmhc.py" beforeDir="false" afterPath="$PROJECT_DIR$/lib/mmhc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/mmpc.py" beforeDir="false" afterPath="$PROJECT_DIR$/lib/mmpc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.001.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.001.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.001result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.002.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.002.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.002result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.005.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.005.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.005result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.01.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.01.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.01result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.05.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.05.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.05result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.1.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.1.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.1result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.3.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.3.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.3result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.499.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.499.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm0.499result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm1000.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm1000.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm1000result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm1e-04.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm1e-04.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm1e-04result.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm5000.gv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm5000.gv.pdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/output/alarm5000result.json" beforeDir="false" />
-    </list>
+    <list default="true" id="7a2d1ee2-3a00-4f4e-8dd3-5822a9867a64" name="Default Changelist" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

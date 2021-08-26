@@ -1,7 +1,9 @@
-import pandas as pd
 import random
-from graphviz import Digraph
+import urllib.request
 from os import path
+
+import pandas as pd
+from graphviz import Digraph
 from rpy2.robjects import pandas2ri
 from rpy2.robjects.packages import importr
 
@@ -13,7 +15,11 @@ base, bnlearn = importr('base'), importr('bnlearn')
 
 # load network
 network = 'alarm'
-dag_true = base.readRDS('Input/' + network + '.rds')
+network_path = 'Input/' + network + '.rds'
+if not path.isfile(network_path):
+    url = 'https://www.bnlearn.com/bnrepository/' + network + '/' + network + '.rds'
+    urllib.request.urlretrieve(url, network_path)
+dag_true = base.readRDS(network_path)
 
 # generate data
 datasize = 10000
@@ -27,7 +33,7 @@ else:
 
 
 # learn bayesian network from data
-dag_learned = mmhc(data, prune = True, threshold = 0.05)
+dag_learned = mmhc(data)
 
 # plot the learned graph
 dot = Digraph()
