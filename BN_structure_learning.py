@@ -1,50 +1,42 @@
 import pandas as pd
-import numpy as np
-from lib.mmhc import mmhc
+import random
 from graphviz import Digraph
-from lib.evaluation import compare
-from lib.accessory import cpdag
-import json
+from os import path
+from rpy2.robjects import pandas2ri
+from rpy2.robjects.packages import importr
 
-# input data for learning
-data_set = 'alarm'
-data_size = '0.1'
-data_training = pd.read_csv('Input/' + data_set + data_size + '.csv')
-print('data loaded successfully')
+from lib.evaluation import f1
+from lib.mmhc import mmhc
 
-# add noise into original data
-# data_noise = data_training.copy()
-# epsilon = 0.1
-# for var in data_noise:
-#     values = data_noise[var].unique()
-#     len_values = len(values)
-#     noise = epsilon / (len_values - 1) * np.ones((len_values, len_values)) + (1 - epsilon * len_values / (len_values - 1)) * np.identity(len_values)
-#     for val in values:
-#         data_noise[var][data_noise[var] == val] = np.random.choice(values, len(data_noise[var][data_noise[var] == val]), p = noise[np.where(values == val)[0][0], :])
+pandas2ri.activate()
+base, bnlearn = importr('base'), importr('bnlearn')
+
+# load network
+network = 'alarm'
+dag_true = base.readRDS('Input/' + network + '.rds')
+
+# generate data
+datasize = 10000
+filename = 'Input/' + network + '_' + str(datasize) + '.csv'
+if path.isfile(filename):
+    data = pd.read_csv(filename, dtype='category') # change dtype = 'float64'/'category' if data is continuous/categorical
+else:
+    data = bnlearn.rbn(dag_true, datasize)
+    data = data[random.sample(list(data.columns), data.shape[1])]
+    data.to_csv(filename, index=False)
+
 
 # learn bayesian network from data
-dag = mmhc(data_training, score_function = 'bic', prune = False, threshold = 0.05)
+dag_learned = mmhc(data, prune = True, threshold = 0.05)
 
-# plot the graph
+# plot the learned graph
 dot = Digraph()
-for k, v in dag.items():
-    if k not in dot.body:
-        dot.node(k)
-    if v:
-        for v_ele in v['par']:
-            if v_ele not in dot.body:
-                dot.node(v_ele)
-            dot.edge(v_ele, k)
-dot.render('output/' + data_set + data_size + '.gv', view = False)
+for node in bnlearn.nodes(dag_learned):
+    dot.node(node)
+    for parent in bnlearn.parents(dag_learned, node):
+        dot.edge(node, parent)
+dot.render('output/' + network  + '_' + str(datasize) + '.gv', view = False)
 
-# save the result
-with open('output/' + data_set + data_size + 'result.json', 'w') as fp:
-    json.dump(dag, fp)
-
-# evaluate the result (comment the following lines if evaluation is not necessary)
-with open('Input/' + data_set + '.json') as json_file:
-     true_dag = json.load(json_file)
-
-compare_result = compare(cpdag(true_dag), cpdag(dag))
-print('Compare the edges with true graph:')
-print('\n'.join("{}: {}".format(k, v) for k, v in compare_result.items()))
+# evaluate the learned graph
+print('f1 score is ' + str(f1(dag_true, dag_learned)))
+print('shd score is ' + str(bnlearn.shd(bnlearn.cpdag(dag_true), dag_learned)[0]))

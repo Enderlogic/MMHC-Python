@@ -1,15 +1,18 @@
 from lib.mmpc import mmpc_forward, mmpc_backward, symmetry
 from lib.hc import hc
 import time
+import numpy as np
 
-def mmhc(data, score_function = 'bdeu', prune = False, threshold = 0.05):
-    # input:
-    # data: input training data
-    # score: the type of score function, currently support 'bdeu', 'bic'
-    # prune: prune candidate variable by previous results
-    # threshold: threshold for CI test
-    # output:
-    # dag: a dictionary containing variables with their parents
+def mmhc(data, test = None, score = None, prune = True, threshold = 0.05):
+    '''
+    mmhc algorithm
+    :param data: input data (pandas dataframe)
+    :param test: type of independence test (currently support g-test (for discrete data), z-test (for continuous data))
+    :param score: type of score function (currently support bic (for both discrete and continuous data))
+    :param prune: whether use prune method
+    :param threshold: threshold for CI test
+    :return: the DAG learned from data (bnlearn format)
+    '''
 
     # initialise pc set as empty for all variables
     pc = {}
@@ -20,38 +23,41 @@ def mmhc(data, score_function = 'bdeu', prune = False, threshold = 0.05):
         can[tar] = list(data.columns)
         can[tar].remove(tar)
 
-    start_time = time.time()
+    # preprocess the data
+    varnames = list(data.columns)
+    if all(data[var].dtype.name == 'category' for var in data):
+        arities = np.array(data.nunique())
+        data = data.apply(lambda x: x.cat.codes).to_numpy()
+        if test is None:
+            test = 'g-test'
+        if score is None:
+            score = 'bic'
+    elif all(data[var].dtype.name != 'category' for var in data):
+        arities = None
+        if test is None:
+            test = 'z-test'
+        if score is None or score == 'bic':
+            score = 'bic_g'
+    else:
+        raise Exception('Mixed data is not supported.')
+
     # run MMPC on each variable
-    # forward_time = 0
-    # backward_time = 0
-    for tar in data:
+    start = time.time()
+    for tar in varnames:
         # forward phase
         pc[tar] = []
-        # start_time = time.time()
-        pc[tar], can = mmpc_forward(tar, pc[tar], can, data, prune, threshold)
-        # end_time = time.time()
-        # forward_time = forward_time + end_time - start_time
-        # print('run time for forward:', end_time - start_time, 'seconds')
+        pc[tar], can = mmpc_forward(tar, pc[tar], can, data, arities, varnames, prune, test, threshold)
         # backward phase
-        # start_time = time.time()
         if pc[tar]:
-            pc[tar], can = mmpc_backward(tar, pc[tar], can, data, prune, threshold)
-        # end_time = time.time()
-        # backward_time = backward_time + end_time - start_time
-        # print('run time for backward', end_time - start_time, 'seconds')
-        print(tar)
-
-    end_time = time.time()
-    print("run time for mmpc:", end_time - start_time, "seconds")
+            pc[tar], can = mmpc_backward(tar, pc[tar], can, data, arities, varnames, prune, test, threshold)
     # check the symmetry of pc set
     # when the number of variables is large, this function may be computational costly
     # this function can be merged into the pruning process during forward and backward mmpc by transmitting the whole
     # pc set into mmpc_forward and mmpc_backward
     pc = symmetry(pc)
-
-    start_time = time.time()
+    print('MMPC phase costs %.2f seconds' % (time.time() - start))
     # run hill-climbing
-    dag = hc(data, pc, score_function)
-    end_time = time.time()
-    print("run time for hc:", end_time - start_time, "seconds")
+    start = time.time()
+    dag = hc(data, arities, varnames, pc, score)
+    print('HC phase costs %.2f seconds' % (time.time() - start))
     return dag
